@@ -87,6 +87,14 @@ A small Vite + React page for the fraud team: pick an example payment (or paste 
 "Check payment", and see the decision, the score against the review and block marks, and the top
 reasons. Bad requests show the field names the API reports.
 
+| Fraud example | Normal payment |
+|---|---|
+| ![A payment sent to the fraud team or blocked, with the score and top reasons](docs/images/frontend-fraud.png) | ![A normal payment that is allowed](docs/images/frontend-normal.png) |
+
+It follows the system's light or dark setting:
+
+![The same page in dark mode](docs/images/frontend-dark.png)
+
 ```bash
 make run              # terminal 1: the API on port 8000
 make front            # terminal 2: the page on http://localhost:5173 (needs Node 18+)
