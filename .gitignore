@@ -1,0 +1,21 @@
+# Python and notebooks
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Made by running a starter notebook: downloads and trained models stay out of git.
+# (Deciding where your service's model lives is part of Stage 3.)
+tracks/*/artifacts/
+tracks/*/data/
+*.onnx
+*.safetensors
+
+# Secrets: never commit these
+.env
+*.agekey
+age-key.txt
+keys.txt
