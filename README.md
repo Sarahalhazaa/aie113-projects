@@ -9,6 +9,7 @@ into a service: clean architecture (stage 1), a FastAPI endpoint (stage 2) and a
 
 ## Team
 
+- [Sarahalhazaa](https://github.com/Sarahalhazaa)
 - [latiatuw](https://github.com/latiatuw)
 - [ssaara](https://github.com/ssaara)
 - [Wajnmq](https://github.com/Wajnmq)
