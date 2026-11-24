@@ -7,6 +7,13 @@ into a service: clean architecture (stage 1), a FastAPI endpoint (stage 2) and a
 > Teaching model trained on two days of 2013 data. It misses about one fraud in four. Never use
 > it to block cards or accuse anyone without a human check.
 
+## Team
+
+- [latiatuw](https://github.com/latiatuw)
+- [ssaara](https://github.com/ssaara)
+- [Wajnmq](https://github.com/Wajnmq)
+- [AishaAlsaedi8](https://github.com/AishaAlsaedi8)
+
 ## Run it (macOS / Linux)
 
 ```bash
