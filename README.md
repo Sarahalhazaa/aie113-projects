@@ -1,111 +1,116 @@
-# SDA-AIE-113 group projects
+# Card fraud scoring service
 
-The final project of **SDA-AIE-113 · Software Engineering Practices for AI Systems**
-(SDAIA Academy). Your group takes a real data-science notebook and, with an AI coding agent,
-turns it into a production-style AI service. You do not write code by hand. **You decide, you
-check, and you understand.** Understanding the process is full marks.
+SDA-AIE-113 final project, fraud track. The notebook `tracks/fraud/notebook.ipynb` reorganised
+into a service: clean architecture (stage 1), a FastAPI endpoint (stage 2) and a container
+(stage 3).
 
-Workshop site: https://aie113.ibrahimalshehri.sa · [بالعربية](#بالعربية)
+> Teaching model trained on two days of 2013 data. It misses about one fraud in four. Never use
+> it to block cards or accuse anyone without a human check.
 
-## The three tracks
+## Run it (macOS / Linux)
 
-Every track uses real data, and every model explains its answers.
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+make install          # the project and dev tools
+make reference        # once: the notebook's own code saves its answers in golden/ (downloads 150 MB)
+make train            # the new code trains the model into artifacts/
+make golden           # proof: the new code gives the notebook's answers
+make score            # score the notebook's example payment from the command line
+make run              # API on http://localhost:8000/docs
+```
 
-| Track | The model | Open the notebook |
-|---|---|---|
-| [**Stocks**](tracks/stocks/) | Forecasts tomorrow's closing price of a Saudi stock from real market data, and shows which recent signals drove the forecast. A teaching example, not investment advice. | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/snow10100/aie113-projects/blob/main/tracks/stocks/notebook.ipynb) |
-| [**Fraud**](tracks/fraud/) | Flags card transactions that look like fraud, trained on real anonymised bank transactions, and gives the top reasons behind each alert. | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/snow10100/aie113-projects/blob/main/tracks/fraud/notebook.ipynb) |
-| [**Vision**](tracks/vision/) | Spots disease on bean leaves in real field photos with a published model, and shows which part of the leaf it looked at. | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/snow10100/aie113-projects/blob/main/tracks/vision/notebook.ipynb) |
+In the container:
 
-Each track's README explains its model in plain words, for people who have never seen machine
-learning.
+```bash
+make lock             # only when dependencies change
+make image            # build card-fraud-service:dev
+make up               # start it with Docker Compose, wait for (healthy) in: docker compose ps
+make smoke            # ready + one real request
+make down
+```
 
-## The journey
+## Folder tree
 
-**0** Meet your model → **1** Reorganise it (clean architecture) → **2** Put an API in front of it
-(FastAPI) → **3** Put it in a container (Docker) → **4** Test it → **5** Automate it (GitHub
-Actions) → **6** Handle secrets the modern way → *optional:* a front end with Vite and React.
+```
+src/card_fraud/
+├── domain/              the words and rules of the problem. Standard library only.
+│   ├── payment.py         a payment, its 30 model inputs, the hour-of-day rule
+│   └── assessment.py      allow / review / block rule, a reason, the answer
+├── service/             the job "assess one payment". Knows no library and no file.
+│   ├── ports.py           what the service needs: a ScoringModel, a ModelCard
+│   ├── reasons.py         the notebook's "what if typical?" explanation
+│   └── scorer.py          FraudScorer: inputs -> score -> decision -> top reasons
+├── adapters/            the tools. The only place scikit-learn, joblib and files appear.
+│   ├── sklearn_model.py   loads artifacts/ and scores rows with scikit-learn
+│   └── payments_csv.py    downloads and reads the training CSV
+├── training/pipeline.py the notebook's training steps as small functions
+├── api/                 entry point 1: the web (schemas, routes, app)
+├── train.py             entry point 2: python -m card_fraud.train
+├── score_one.py         entry point 3: python -m card_fraud.score_one payment.json
+├── composition.py       the one place concrete classes are wired together
+└── config.py            ALL settings (service and training), from env variables or .env
+legacy/notebook_reference.py   the notebook's code, kept only to produce the golden answers
+scripts/check_golden.py        compares the new code with those answers
+golden/                        the notebook's answers for 5 payments and its test numbers
+artifacts/                     the trained model and model_info.json (small, committed)
+payloads/                      example requests, good and bad
+```
 
-[**GUIDE.md**](GUIDE.md) explains each stage: the idea, what to ask your agent, how to see for
-yourself what it built, and when the stage is done. No code to copy: your agent writes the code,
-the guide makes sure you understand it.
+**Import directions** (inner parts never import outer parts):
 
-## How to start
+```
+api, train.py, score_one.py  ->  composition  ->  adapters  ->  service  ->  domain
+training/pipeline.py  ->  domain (the hour rule and input order: no training/serving skew)
+```
 
-1. **Form a group** of any size. At least one member needs an AI coding agent backed by a
-   frontier model (for example Claude Code, GitHub Copilot in agent mode, Cursor, Codex or
-   Gemini CLI).
-2. **Pick a track** and run its notebook in Colab, top to bottom.
-3. **Make your group's repository**: fork this one (or download it), then ask your agent to keep
-   only your track. `AGENTS.md` tells every common coding agent to explain each step to you as
-   it works.
-4. **Follow [GUIDE.md](GUIDE.md)** stage by stage, and keep [JOURNAL.md](JOURNAL.md): one entry
-   per stage.
+**Which file changes if…**
 
-A first sentence for your agent:
+| Change | File |
+|---|---|
+| a new model (ONNX, a model server) | a new adapter + one line in `composition.py` |
+| a new data source | `adapters/payments_csv.py` |
+| the fraud team's thresholds | `configs/*.env` or `FRAUD_*` env variables (no code) |
+| the meaning of "review" or "block" | `domain/assessment.py` |
+| the request shape | `api/schemas.py` |
 
-    Read AGENTS.md, GUIDE.md and tracks/<track>/README.md. Explain our model to us in plain words,
-    then guide us through Stage 1 one step at a time.
+## Front end (optional extension)
 
-## What you hand in
+A small Vite + React page for the fraud team: pick an example payment (or paste one), press
+"Check payment", and see the decision, the score against the review and block marks, and the top
+reasons. Bad requests show the field names the API reports.
 
-Your repository, your journal, and a short walkthrough where any member can explain any stage.
-Code quality, speed and the front end are not graded.
+```bash
+make run              # terminal 1: the API on port 8000
+make front            # terminal 2: the page on http://localhost:5173 (needs Node 18+)
+```
 
----
+In development, Vite forwards `/v1/*` to the API (`frontend/vite.config.js`; change the target with
+`API_URL=...`), so the API needs no CORS setting. The page reads the example payloads from
+`payloads/`, so there is one copy of them. It is not part of the container image.
 
-<div dir="rtl" lang="ar">
+## The API
 
-## بالعربية
+| Endpoint | What it does |
+|---|---|
+| `POST /v1/score` | one payment in; fraud score, decision and top reasons out |
+| `GET /v1/model` | model version, thresholds, test results |
+| `GET /v1/health` | liveness: the process is up (no model check) |
+| `GET /v1/ready` | readiness: the model is loaded (the container healthcheck uses this) |
 
-المشروع الختامي لورشة **ممارسات هندسة البرمجيات لأنظمة الذكاء الاصطناعي (SDA-AIE-113)** في
-أكاديمية سدايا. تبدأ مجموعتك من دفتر (notebook) حقيقي لعالِم بيانات، وتحوّله بمساعدة وكيل
-برمجة ذكي إلى خدمة ذكاء اصطناعي بمعايير الإنتاج. لن تكتبوا الكود بأيديكم: **أنتم تقررون،
-وتتحققون، وتفهمون.** فهم العملية يعني الدرجة الكاملة.
+Decisions: `allow` below the review threshold; `review` (send to the fraud team) from the
+threshold chosen in training (0.4 in the notebook); `block` from 0.9. **The block threshold is a
+new business rule the notebook does not have**: agree on it with the fraud team and change it in
+`configs/dev.env`.
 
-### المسارات الثلاثة
+Bad requests (missing V14, negative amount, a number sent as text, an unknown field) get
+`422 {"error": {"code": "INVALID_REQUEST", ...}}`, naming the field but never echoing its value.
 
-كل مسار يستخدم بيانات حقيقية، وكل نموذج يشرح إجاباته:
+## Choices worth explaining
 
-- **الأسهم:** يتوقع سعر إغلاق سهم سعودي في يوم التداول التالي من بيانات سوق حقيقية، ويوضح
-  الإشارات التي أثّرت في التوقع. مثال تعليمي وليس نصيحة استثمارية.
-- **الاحتيال:** يرصد عمليات البطاقات المشبوهة، مدرَّب على عمليات بنكية حقيقية مجهولة الهوية،
-  ويذكر أهم أسباب كل تنبيه.
-- **الرؤية الحاسوبية:** يكتشف أمراض أوراق الفاصوليا في صور حقيقية من الحقول بنموذج منشور،
-  ويُظهر الجزء الذي نظر إليه النموذج في الورقة.
-
-يشرح ملف README.ar.md في مجلد كل مسار النموذج بكلمات بسيطة لمن لم يتعامل مع تعلم الآلة من قبل.
-
-### الرحلة
-
-**0** تعرّف على نموذجك ← **1** أعد تنظيمه (المعمارية النظيفة) ← **2** ضع أمامه واجهة برمجية
-(FastAPI) ← **3** ضعه في حاوية (Docker) ← **4** اختبره ← **5** أتمته (GitHub Actions) ← **6**
-تعامل مع الأسرار بالطرق الحديثة ← *اختياري:* واجهة أمامية بـ Vite وReact.
-
-يشرح الدليل [GUIDE.ar.md](GUIDE.ar.md) كل مرحلة: الفكرة، وما تطلبه من وكيلك، وكيف ترى بنفسك
-ما بناه، ومتى تنتهي المرحلة. لا يوجد كود للنسخ: الوكيل يكتب الكود، والدليل يضمن أنك تفهمه.
-
-### كيف تبدأ
-
-1. **كوّنوا مجموعة** بأي عدد. يحتاج عضو واحد على الأقل إلى وكيل برمجة ذكي يعمل بنموذج متقدم
-   (مثل Claude Code أو GitHub Copilot في وضع الوكيل أو Cursor أو Codex أو Gemini CLI).
-2. **اختاروا مسارًا** وشغّلوا دفتره في Colab من أوله إلى آخره (روابط Colab في الجدول أعلاه).
-3. **أنشئوا مستودع المجموعة**: انسخوا هذا المستودع (Fork) أو نزّلوه، ثم اطلبوا من الوكيل
-   الإبقاء على مساركم فقط. الملف AGENTS.md يطلب من وكلاء البرمجة الشائعين شرح كل خطوة لكم.
-4. **اتبعوا الدليل** مرحلة بمرحلة، واكتبوا سجل المشروع JOURNAL.md: مدخل واحد لكل مرحلة.
-
-جملة أولى لوكيلكم:
-
-</div>
-
-    Read AGENTS.md, GUIDE.ar.md and tracks/<track>/README.ar.md. Explain our model to us in plain
-    words, then guide us through Stage 1 one step at a time. Reply in Arabic.
-
-<div dir="rtl" lang="ar">
-
-### ما تسلّمونه
-
-مستودعكم، وسجل المشروع، وعرض قصير يستطيع فيه أي عضو شرح أي مرحلة. جودة الكود والسرعة
-والواجهة الأمامية لا تدخل في التقييم.
-
-</div>
+- **The model lives inside the image.** It is small (about 600 KB), so one image = one model
+  version, and rolling back is one command. `artifacts/` is committed for the same reason; the
+  150 MB dataset is not.
+- **`/ready`, not `/health`, for the healthcheck**, so the container is "healthy" only once the
+  model is loaded.
+- **The healthcheck uses Python**, so the image needs no `curl`.
+- **26 locked libraries** (no `fastapi[standard]`): a smaller image.

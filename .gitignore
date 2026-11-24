@@ -1,21 +1,18 @@
-# Python and notebooks
 .venv/
 __pycache__/
 *.pyc
-.ipynb_checkpoints/
 .pytest_cache/
-.coverage
-htmlcov/
-
-# Made by running a starter notebook: downloads and trained models stay out of git.
-# (Deciding where your service's model lives is part of Stage 3.)
-tracks/*/artifacts/
-tracks/*/data/
-*.onnx
-*.safetensors
-
-# Secrets: never commit these
+.ruff_cache/
+*.egg-info/
+# The 150 MB dataset is downloaded, never committed
+data/
+*.part
+# Secrets never enter git. Commit configs/settings.example.env instead.
 .env
-*.agekey
-age-key.txt
-keys.txt
+*.env
+!configs/dev.env
+!configs/settings.example.env
+
+# Front end
+frontend/node_modules/
+frontend/dist/
